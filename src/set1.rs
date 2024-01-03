@@ -15,8 +15,7 @@ mod tests {
     #[test]
     fn part_2() {
         let input = "1c0111001f010100061a024b53535009181c";
-        let target = "6869use std::collections::BTreeMap;
-        74207468652062756c6c277320657965";
+        let target = "686974207468652062756c6c277320657965";
         let expected = "746865206b696420646f6e277420706c6179";
         assert_eq!(expected, fixed_xor(input, target));
     }
