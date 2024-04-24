@@ -3,7 +3,10 @@ use base64::{Engine as _, engine::general_purpose};
 
 #[cfg(test)]
 mod tests {
-    use crate::set1::{b16_to_b64, fixed_xor};
+    use crate::set1::{b16_to_b64, fixed_xor, single_byte_xor};
+
+    #[derive(PartialEq, Debug)]
+    enum Part3Result { Char(char), String(String) }
 
     #[test]
     fn part_1() {
@@ -18,6 +21,20 @@ mod tests {
         let target = "686974207468652062756c6c277320657965";
         let expected = "746865206b696420646f6e277420706c6179";
         assert_eq!(expected, fixed_xor(input, target));
+    }
+
+    #[test]
+    fn part_3() {
+        let input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
+        let expected = vec![
+            Part3Result::Char('X'), 
+            Part3Result::String("Cooking MC's like a pound of bacon".to_string())
+        ];
+        let result = vec![
+            Part3Result::Char(single_byte_xor(input).unwrap().0), 
+            Part3Result::String(single_byte_xor(input).unwrap().1)
+        ];
+        assert_eq!(expected, result);
     }
 }
 
