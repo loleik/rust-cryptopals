@@ -2,6 +2,7 @@ use hex;
 use base64::prelude::*;
 use std::fs;
 use openssl::symm::{decrypt, Cipher};
+use std::collections::HashSet;
 
 use crate::utils::{letter_frequency, hamming_distance, file_to_lines, base64_file_decode};
 
@@ -147,6 +148,27 @@ fn aes_ecb(input: &str, key: &str) -> String {
     String::from_utf8(result).unwrap()
 }
 
+fn detect_aes_ecb(input: &str) -> Vec<u8> {
+    let data: Vec<String> = file_to_lines(input);
+
+    let mut current_max: (usize, Vec<u8>) = (0, Vec::new());
+
+    for line in data {
+        let decoded: Vec<u8> = hex::decode(&line).unwrap();
+        let blocks: Vec<&[u8]> = decoded.chunks(16).collect::<Vec<_>>();
+
+        let unique: HashSet<&[u8]> = blocks.iter().cloned().collect();
+
+        let identical: usize = blocks.len() - unique.len();
+
+        if identical > current_max.0 {
+            current_max = (identical, decoded);
+        }
+    }
+
+    current_max.1
+}
+
 pub fn set_1(part: &str, input: &str) {
     println!("Input: {input}");
     match part {
@@ -178,7 +200,11 @@ pub fn set_1(part: &str, input: &str) {
         "7" => {
             let result: String = aes_ecb(input, "YELLOW SUBMARINE");
             println!("Result: {}", result);
-        }
+        },
+        "8" => {
+            let result: Vec<u8> = detect_aes_ecb(input);
+            println!("Result: {:?}", hex::encode(result));
+        },
         _ => println!("wah")
     }
 }
