@@ -2,19 +2,27 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
+#[cfg(test)]
+mod tests {
+    use crate::utils::hamming_distance;
+
+    #[test]
+    fn hamming_test() {
+        let a: &str = "this is a test";
+        let b: &str = "wokka wokka!!!";
+        assert_eq!(37, hamming_distance(a, b));
+    }
+}
+
 pub fn file_to_lines(path: &str) -> Vec<String> {
     let mut output = Vec::new();
 
-    // File hosts.txt must exist in the current path
     if let Ok(lines) = read_lines(path) {
-        // Consumes the iterator, returns an (Optional) String
         for line in lines.map_while(Result::ok) {
             output.push(line);
         }
     }
     
-    // The output is wrapped in a Result to allow matching on errors.
-    // Returns an Iterator to the Reader of the lines of the file.
     fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
     where P: AsRef<Path>, {
         let file = File::open(filename)?;
@@ -47,4 +55,18 @@ pub fn letter_frequency(data: &Vec<u8>) -> Vec<(u8, f64)> {
     };
 
     scores
+}
+
+pub fn hamming_distance(a: &str, b: &str) -> u32 {
+    let mut distance: u32 = 0;
+
+    for (x, y) in a.bytes().zip(b.bytes()) {
+        let mut xor: u8 = x ^ y;
+        while xor > 0 {
+            distance += (xor & 1) as u32;
+            xor >>= 1;
+        }
+    }
+
+    distance
 }
