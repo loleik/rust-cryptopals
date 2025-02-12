@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use base64::prelude::*;
 
 #[cfg(test)]
 mod tests {
@@ -8,8 +9,8 @@ mod tests {
 
     #[test]
     fn hamming_test() {
-        let a: &str = "this is a test";
-        let b: &str = "wokka wokka!!!";
+        let a: &[u8] = "this is a test".as_bytes();
+        let b: &[u8] = "wokka wokka!!!".as_bytes();
         assert_eq!(37, hamming_distance(a, b));
     }
 }
@@ -30,6 +31,14 @@ pub fn file_to_lines(path: &str) -> Vec<String> {
     }
 
     output
+}
+
+pub fn base64_file_decode(path: &str) -> Vec<u8> {
+    let raw_text = file_to_lines(path).join("");
+
+    let data = BASE64_STANDARD.decode(raw_text.as_bytes()).expect("Invalid base64 string");
+
+    data
 }
 
 pub fn letter_frequency(data: &Vec<u8>) -> Vec<(u8, f64)> {
@@ -57,11 +66,11 @@ pub fn letter_frequency(data: &Vec<u8>) -> Vec<(u8, f64)> {
     scores
 }
 
-pub fn hamming_distance(a: &str, b: &str) -> u32 {
+pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     let mut distance: u32 = 0;
 
-    for (x, y) in a.bytes().zip(b.bytes()) {
-        let mut xor: u8 = x ^ y;
+    for i in 0..a.len() {
+        let mut xor: u8 = a[i] ^ b[i];
         while xor > 0 {
             distance += (xor & 1) as u32;
             xor >>= 1;
