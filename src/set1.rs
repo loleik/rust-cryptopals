@@ -1,17 +1,18 @@
 use hex;
 use base64::prelude::*;
 use std::fs;
+use openssl::symm::{decrypt, Cipher};
 
 use crate::utils::{letter_frequency, hamming_distance, file_to_lines, base64_file_decode};
 
-fn part_1(input: &str) -> String {
+fn hex_to_base64(input: &str) -> String {
     let bytes: Vec<u8> = hex::decode(input)
         .expect("Invalid input string");
     let result: String = BASE64_STANDARD.encode(&bytes);
     result
 }
 
-fn part_2(input: &str, target: &str) -> String {
+fn fixed_xor(input: &str, target: &str) -> String {
     let target_bytes: Vec<u8> = hex::decode(target)
         .expect("Invalid input string");
     let input_bytes: Vec<u8> = hex::decode(input)
@@ -28,7 +29,7 @@ fn part_2(input: &str, target: &str) -> String {
     hex::encode(result)
 }
 
-fn part_3(input: &str) -> Option<(char, String, f64)> {
+fn single_byte_xor(input: &str) -> Option<(char, String, f64)> {
     let input_bytes: Vec<u8> = hex::decode(input)
         .expect("Invalid input string");
 
@@ -44,7 +45,7 @@ fn part_3(input: &str) -> Option<(char, String, f64)> {
     } else { None }
 }
 
-fn part_4(input: &str, file: bool) -> (char, String, f64) {
+fn detect_single_byte_xor(input: &str, file: bool) -> (char, String, f64) {
     let mut results: Vec<(char, String, f64)> = Vec::new();
 
     let lines: Vec<String> = if file {
@@ -54,7 +55,7 @@ fn part_4(input: &str, file: bool) -> (char, String, f64) {
     };
 
     lines.iter().for_each(|line| {
-        results.push(part_3(line).unwrap_or((' ', "".to_string(), 0.)));
+        results.push(single_byte_xor(line).unwrap_or((' ', "".to_string(), 0.)));
     });
 
     if let Some(max) = results.iter().max_by(|a, b| a.2.partial_cmp(&b.2).unwrap()) {
@@ -64,7 +65,7 @@ fn part_4(input: &str, file: bool) -> (char, String, f64) {
     }
 }
 
-fn part_5(input: &str, key: &str, test: bool) -> String {
+fn repeating_key_xor(input: &str, key: &str, test: bool) -> String {
     let data: Vec<u8> = if !test {
         match fs::read(input) {
             Ok(data) => data,
@@ -85,7 +86,7 @@ fn part_5(input: &str, key: &str, test: bool) -> String {
     hex::encode(result)
 }
 
-fn part_6(input: &str) {
+fn break_repeating_key_xor(input: &str) {
     let data: Vec<u8> = base64_file_decode(input);
 
     let mut distances: Vec<(usize, f32)> = Vec::new();
@@ -124,59 +125,73 @@ fn part_6(input: &str) {
     let mut key: String = String::new();
 
     for block in new_blocks {
-        key.push_str(&part_4(&block, false).0.to_string());
+        key.push_str(&detect_single_byte_xor(&block, false).0.to_string());
     }
 
     println!("Key: {}", key);
 
     let result: String = String::from_utf8(hex::decode(
-        part_5(String::from_utf8(data).unwrap().as_str(), &key, true)
+        repeating_key_xor(String::from_utf8(data).unwrap().as_str(), &key, true)
     ).unwrap()).unwrap();
 
     println!("Result: {}", result);
+}
+
+fn aes_ecb(input: &str, key: &str) -> String {
+    let data: Vec<u8> = base64_file_decode(input);
+    let key_bytes: &[u8] = key.as_bytes();
+    let cipher: Cipher = Cipher::aes_128_ecb();
+
+    let result: Vec<u8> = decrypt(cipher, key_bytes, None, &data).unwrap();
+
+    String::from_utf8(result).unwrap()
 }
 
 pub fn set_1(part: &str, input: &str) {
     println!("Input: {input}");
     match part {
         "1" => {
-            println!("Base 64: {}", part_1(input));
+            println!("Base 64: {}", hex_to_base64(input));
         },
         "2" => {
             // Should be rewritten to allow target to be inputted using the CLI
             let target = "686974207468652062756c6c277320657965";
             println!("Target: {target}");
-            println!("XOR Result: {}", part_2(input, target));
+            println!("XOR Result: {}", fixed_xor(input, target));
         },
         "3" => {
-            let result: (char, String, f64) = part_3(input).unwrap_or((' ', "".to_string(), 0.));
+            let result: (char, String, f64) = single_byte_xor(input).unwrap_or((' ', "".to_string(), 0.));
             println!("Found: {:?}", result);
         },
         "4" => {
-            let result: (char, String, f64) = part_4(input, true);
+            let result: (char, String, f64) = detect_single_byte_xor(input, true);
             println!("Found: {}", result.1.trim_end());
             println!("Key: {} Score: {}", result.0, result.2);
         },
         "5" => {
-            let result: String = part_5(input, "ICE", false);
+            let result: String = repeating_key_xor(input, "ICE", false);
             println!("Result: {}", result);
         },
         "6" => {
-            part_6(input);
+            break_repeating_key_xor(input);
         },
+        "7" => {
+            let result: String = aes_ecb(input, "YELLOW SUBMARINE");
+            println!("Result: {}", result);
+        }
         _ => println!("wah")
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::set1::{part_1, part_2, part_3, part_5};
+    use crate::set1::{hex_to_base64, fixed_xor, single_byte_xor, repeating_key_xor};
 
     #[test]
     fn test_1() {
         let input: &str = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d";
         let expected: &str = "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t";
-        assert_eq!(expected, part_1(input));
+        assert_eq!(expected, hex_to_base64(input));
     }
 
     #[test]
@@ -184,14 +199,14 @@ mod tests {
         let input: &str = "1c0111001f010100061a024b53535009181c";
         let target: &str = "686974207468652062756c6c277320657965";
         let expected: &str = "746865206b696420646f6e277420706c6179";
-        assert_eq!(expected, part_2(input, target));
+        assert_eq!(expected, fixed_xor(input, target));
     }
 
     #[test]
     fn test_3() {
         let input: &str = "0429202023606c3824253f6c253f6c2d6c38293f38";
         let expected: (char, String, f64) = ('L', "Hello, this is a test".to_string(), 111.393);
-        let output: (char, String, f64) = part_3(input).unwrap_or((' ', "".to_string(), 0.));
+        let output: (char, String, f64) = single_byte_xor(input).unwrap_or((' ', "".to_string(), 0.));
         assert_eq!(expected, output);
     }
     /* I'm not sure what to write for a test here
@@ -205,6 +220,6 @@ mod tests {
         let input: &str = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
         let key: &str = "ICE";
         let expected: &str = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
-        assert_eq!(expected, part_5(input, key, true));
+        assert_eq!(expected, repeating_key_xor(input, key, true));
     }
 }
