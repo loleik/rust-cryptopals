@@ -18,22 +18,22 @@ fn cli() -> Command {
                 .about("Run a specific part of a set with a specified input")
                 .arg(arg!(<SET> "Set number"))
                 .arg(arg!(<PART> "Part number"))
-                .arg(arg!(<INPUT> "Input to run with"))
+                .arg(arg!(<INPUT> "Path to input file"))
                 .arg_required_else_help(true)
         )
 }
 
 fn main() {
-    let matches = cli().get_matches();
+    let matches: clap::ArgMatches = cli().get_matches();
 
     match matches.subcommand() {
         Some(("run", sub_matches)) => {
-            let set_num = sub_matches.get_one::<String>("SET").expect("Required");
-            let part_num = sub_matches.get_one::<String>("PART").expect("Required");
-            let input = sub_matches.get_one::<String>("INPUT").expect("Required");
+            let set_num: &String = sub_matches.get_one::<String>("SET").expect("Required");
+            let part_num: &String = sub_matches.get_one::<String>("PART").expect("Required");
+            let input: &String = sub_matches.get_one::<String>("INPUT").expect("Required");
 
             match set_num.as_str() {
-                "1" => set1::test(&part_num, &input),
+                "1" => set1::set_1(&part_num, &input),
                 _ => println!("Invalid set number: {}", set_num),
             }
         },
