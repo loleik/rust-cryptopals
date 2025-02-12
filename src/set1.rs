@@ -1,14 +1,12 @@
 use hex;
 use base64::{Engine as _, engine::general_purpose};
-use std::fs::File;
-use std::io::{self, BufRead};
-use std::path::Path;
+use std::fs;
 
 use crate::utils::{self, letter_frequency};
 
 #[cfg(test)]
 mod tests {
-    use crate::set1::{part_1, part_2, part_3};
+    use crate::set1::{part_1, part_2, part_3, part_5};
 
     #[test]
     fn test_1() {
@@ -31,6 +29,19 @@ mod tests {
         let expected: (char, String, f64) = ('L', "Hello, this is a test".to_string(), 111.393);
         let output: (char, String, f64) = part_3(input).unwrap_or((' ', "".to_string(), 0.));
         assert_eq!(expected, output);
+    }
+    /* I'm not sure what to write for a test here
+    #[test]
+    fn test_4() {
+
+    }*/
+
+    #[test]
+    fn test_5() {
+        let input: &str = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
+        let key: &str = "ICE";
+        let expected: &str = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
+        assert_eq!(expected, part_5(input, key, true));
     }
 }
 
@@ -89,6 +100,27 @@ fn part_4(input: &str) -> (char, String, f64) {
     }
 }
 
+fn part_5(input: &str, key: &str, test: bool) -> String {
+    let data: Vec<u8> = if !test {
+        match fs::read(input) {
+            Ok(data) => data,
+            Err(error) => panic!("Problem opening file: {error:?}")
+        }
+    } else {
+        input.as_bytes().to_vec()
+    };
+
+    let key_bytes: &[u8] = key.as_bytes();
+    let mut result: Vec<u8> = Vec::new();
+
+    for i in 0..data.len() {
+        let key_byte: u8 = key_bytes[i % key_bytes.len()];
+        result.push(data[i] ^ key_byte);
+    }
+
+    hex::encode(result)
+}
+
 pub fn set_1(part: &str, input: &str) {
     println!("Input: {input}");
     match part {
@@ -110,6 +142,9 @@ pub fn set_1(part: &str, input: &str) {
             println!("Found: {}", result.1.trim_end());
             println!("Key: {} Score: {}", result.0, result.2);
         },
+        "5" => {
+            part_5(input, "ICE", false);
+        }
         _ => println!("wah")
     }
 }
