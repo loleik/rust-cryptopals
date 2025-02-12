@@ -1,6 +1,7 @@
 use clap::{arg, Command};
 
 mod set1;
+mod utils;
 
 /*
     This is pretty much the git example found here:
@@ -18,7 +19,7 @@ fn cli() -> Command {
                 .about("Run a specific part of a set with a specified input")
                 .arg(arg!(<SET> "Set number"))
                 .arg(arg!(<PART> "Part number"))
-                .arg(arg!(<INPUT> "Path to input file"))
+                .arg(arg!(<INPUT> "Input string or file path"))
                 .arg_required_else_help(true)
         )
 }
