@@ -138,8 +138,12 @@ fn break_repeating_key_xor(input: &str) {
     println!("Result: {}", result);
 }
 
-fn aes_ecb(input: &str, key: &str) -> String {
-    let data: Vec<u8> = base64_file_decode(input);
+fn aes_ecb_decrypt(input: &str, key: &str, test: bool) -> String {
+    let data = if !test {
+        base64_file_decode(input)
+    } else {
+        BASE64_STANDARD.decode(input).unwrap()
+    };
     let key_bytes: &[u8] = key.as_bytes();
     let cipher: Cipher = Cipher::aes_128_ecb();
 
@@ -198,7 +202,7 @@ pub fn set_1(part: &str, input: &str) {
             break_repeating_key_xor(input);
         },
         "7" => {
-            let result: String = aes_ecb(input, "YELLOW SUBMARINE");
+            let result: String = aes_ecb_decrypt(input, "YELLOW SUBMARINE", false);
             println!("Result: {}", result);
         },
         "8" => {
@@ -211,7 +215,7 @@ pub fn set_1(part: &str, input: &str) {
 
 #[cfg(test)]
 mod tests {
-    use crate::set1::{hex_to_base64, fixed_xor, single_byte_xor, repeating_key_xor};
+    use crate::set1::{aes_ecb_decrypt, fixed_xor, hex_to_base64, repeating_key_xor, single_byte_xor};
 
     #[test]
     fn test_hex_b64() {
@@ -247,5 +251,17 @@ mod tests {
         let key: &str = "ICE";
         let expected: &str = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
         assert_eq!(expected, repeating_key_xor(input, key, true));
+    }
+
+    #[test]
+    fn test_ecb_decrypt() {
+        let input: &str = "7XjKdNGg6sogVoLhXYpEGw==";
+        let key: &str = "YELLOW SUBMARINE";
+        let expected: &str = "This is a test";
+
+        assert_eq!(
+            expected,
+            aes_ecb_decrypt(input, key, true)
+        )
     }
 }
