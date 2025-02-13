@@ -13,13 +13,14 @@ fn hex_to_base64(input: &str) -> String {
     result
 }
 
-fn fixed_xor(input: &str, target: &str) -> String {
-    let target_bytes: Vec<u8> = hex::decode(target)
-        .expect("Invalid input string");
-    let input_bytes: Vec<u8> = hex::decode(input)
-        .expect("Invalid input string");
-
-    if input_bytes.len() != target_bytes.len() { panic!("Inputs should have the same length") }
+pub fn fixed_xor(input_bytes: Vec<u8>, target_bytes: Vec<u8>) -> String {
+    if input_bytes.len() != target_bytes.len() {
+        panic!(
+            "Inputs should have the same length {} | {}",
+            input_bytes.len(),
+            target_bytes.len()
+        )
+    }
 
     let mut result: Vec<u8> = vec![];
 
@@ -181,9 +182,13 @@ pub fn set_1(part: &str, input: &str) {
         },
         "2" => {
             // Should be rewritten to allow target to be inputted using the CLI
+            let input_bytes: Vec<u8> = hex::decode(input)
+                .expect("Invalid input string");
             let target = "686974207468652062756c6c277320657965";
+            let target_bytes: Vec<u8> = hex::decode(target)
+            .expect("Invalid input string");
             println!("Target: {target}");
-            println!("XOR Result: {}", fixed_xor(input, target));
+            println!("XOR Result: {}", fixed_xor(input_bytes, target_bytes));
         },
         "3" => {
             let result: (char, String, f64) = single_byte_xor(input).unwrap_or((' ', "".to_string(), 0.));
@@ -226,10 +231,14 @@ mod tests {
 
     #[test]
     fn test_fixed_xor() {
-        let input: &str = "1c0111001f010100061a024b53535009181c";
-        let target: &str = "686974207468652062756c6c277320657965";
         let expected: &str = "746865206b696420646f6e277420706c6179";
-        assert_eq!(expected, fixed_xor(input, target));
+
+        let input_bytes: Vec<u8> = hex::decode("1c0111001f010100061a024b53535009181c")
+            .expect("Invalid input string");
+        let target_bytes: Vec<u8> = hex::decode("686974207468652062756c6c277320657965")
+            .expect("Invalid input string");
+
+        assert_eq!(expected, fixed_xor(input_bytes, target_bytes));
     }
 
     #[test]
