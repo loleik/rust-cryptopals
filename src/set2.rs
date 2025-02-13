@@ -1,4 +1,7 @@
 use std::io::{self, Write};
+use openssl::symm::{encrypt, Cipher};
+use std::fs;
+use base64::prelude::*;
 
 fn pkcs7(input: &str, pad: usize) -> Vec<u8> {
     let mut padded:Vec<u8> = input.as_bytes().to_vec();
@@ -8,6 +11,17 @@ fn pkcs7(input: &str, pad: usize) -> Vec<u8> {
     }
 
     padded
+}
+
+fn aes_ecb_encrypt(input: &str, key: &str, test: bool) -> String {
+    let data: Vec<u8> = input.as_bytes().to_vec();
+
+    let key_bytes: &[u8] = key.as_bytes();
+    let cipher: Cipher = Cipher::aes_128_ecb();
+
+    let result: Vec<u8> = encrypt(cipher, key_bytes, None, &data).unwrap();
+
+    BASE64_STANDARD.encode(result)
 }
 
 pub fn set_2(part: &str, input: &str) {
@@ -42,13 +56,17 @@ pub fn set_2(part: &str, input: &str) {
                 }
             }
         }
+        "2" => {
+            let result: String = aes_ecb_encrypt(input, "YELLOW SUBMARINE", false);
+            println!("{}", result);
+        }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::set2::pkcs7;
+    use crate::set2::{aes_ecb_encrypt, pkcs7};
 
     #[test]
     fn test_pkcs7() {
@@ -58,6 +76,18 @@ mod tests {
         assert_eq!(
             expected,
             String::from_utf8(pkcs7(input, padding)).unwrap()
+        )
+    }
+
+    #[test]
+    fn test_ecb_encrypt() {
+        let input: &str = "This is a test";
+        let key: &str = "YELLOW SUBMARINE";
+        let expected: &str = "7XjKdNGg6sogVoLhXYpEGw==";
+
+        assert_eq!(
+            expected,
+            aes_ecb_encrypt(input, key, true)
         )
     }
 }
