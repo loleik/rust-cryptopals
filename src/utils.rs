@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use base64::prelude::*;
+use rand::prelude::*;
 
 #[cfg(test)]
 mod tests {
@@ -78,4 +79,15 @@ pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     }
 
     distance
+}
+
+pub fn random_key(size: usize) -> Vec<u8> {
+    let mut rng: ThreadRng = rand::rng();
+    let mut key: Vec<u8> = Vec::new();
+
+    for _ in 0..size {
+        key.push(rng.random());
+    }
+
+    key
 }

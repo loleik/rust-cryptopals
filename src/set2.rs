@@ -4,14 +4,16 @@ use aes::cipher::{
     BlockEncrypt, BlockDecrypt, KeyInit,
     generic_array::GenericArray,
 };
+use rand::prelude::*;
 
-use crate::utils::base64_file_decode;
+use crate::utils::{base64_file_decode, random_key};
 
 fn pkcs7(input: Vec<u8>, pad: usize) -> Vec<u8> {
-    let mut padded:Vec<u8> = input;
+    let mut padded:Vec<u8> = input.clone();
+    let padding: usize = pad - input.len();
 
     while padded.len() < pad {
-        padded.push(0x04);
+        padded.push(padding as u8);
     }
 
     padded
@@ -88,6 +90,37 @@ fn aes_cbc_encrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     output
 }
 
+fn encryption_oracle(input: &[u8]) -> Vec<u8> {
+    let mut rng: ThreadRng = rand::rng();
+
+    let mut data: Vec<u8> = input.to_vec();
+
+    while data.len() % 16 != 0 {
+        data.push(0x04);
+    }
+
+    let mut encrypted: Vec<u8> = random_key(rng.random_range(5..=10));
+    let end: Vec<u8> = random_key(rng.random_range(5..=10));
+
+    let result: Vec<u8> = if rng.random_bool(0.5) {
+        aes_cbc_encrypt(
+            data.as_slice(),
+            random_key(16).as_slice(),
+            random_key(16).as_slice()
+        )
+    } else {
+        aes_block_encrypt(
+            data.as_slice(),
+            random_key(16).as_slice()
+        )
+    };
+
+    encrypted.extend(result);
+    encrypted.extend(end);
+
+    encrypted
+}
+
 pub fn set_2(part: &str, input: &str) {
     println!("Input: {}", input);
 
@@ -131,6 +164,11 @@ pub fn set_2(part: &str, input: &str) {
             );
 
             println!("{:?}", String::from_utf8(result).unwrap());
+        }
+        "3" => {
+            let data = input.as_bytes();
+            let encrypted = encryption_oracle(data);
+            println!("Orace produced: {:?}", encrypted);
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }
