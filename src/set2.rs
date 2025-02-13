@@ -5,14 +5,15 @@ use aes::cipher::{
     generic_array::GenericArray,
 };
 use rand::prelude::*;
+use std::collections::HashSet;
 
 use crate::utils::{base64_file_decode, random_key};
 
-fn pkcs7(input: Vec<u8>, pad: usize) -> Vec<u8> {
+fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
     let mut padded:Vec<u8> = input.clone();
-    let padding: usize = pad - input.len();
+    let padding: usize = block_size - (input.len() % block_size);
 
-    while padded.len() < pad {
+    while padded.len() % block_size != 0 {
         padded.push(padding as u8);
     }
 
@@ -21,13 +22,18 @@ fn pkcs7(input: Vec<u8>, pad: usize) -> Vec<u8> {
 
 // AES 128 ECB using a different crate. Openssl forces 32 bit buffer size.
 fn aes_block_encrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
-    let cipher_key = GenericArray::from_slice(key);
-    let mut block = *GenericArray::from_slice(input);
-    let cipher = Aes128::new(cipher_key);
+    let cipher_key: &GenericArray<u8, _> = GenericArray::from_slice(key);
+    let cipher: Aes128 = Aes128::new(cipher_key);
 
-    cipher.encrypt_block(&mut block);
+    let mut encrypted_blocks: Vec<u8> = Vec::new();
 
-    block.to_vec()
+    for block in input.chunks(16) {
+        let mut block_array: GenericArray<u8, _> = GenericArray::clone_from_slice(block);
+        cipher.encrypt_block(&mut block_array);
+        encrypted_blocks.extend_from_slice(&block_array);
+    }
+
+    encrypted_blocks
 }
 
 fn aes_block_decrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
@@ -44,11 +50,7 @@ fn aes_cbc_decrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
     let mut previous_block: Vec<u8> = iv.to_vec();
 
-    let mut data = input.to_vec();
-
-    while data.len() % 16 != 0 {
-        data.push(0x04);
-    }
+    let data: Vec<u8> = pkcs7(input.to_vec(), 16);
 
     for block in data.chunks(16) {
         let decrypted = aes_block_decrypt(block, key);
@@ -69,11 +71,7 @@ fn aes_cbc_encrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
     let mut previous_block: Vec<u8> = iv.to_vec();
 
-    let mut data = input.to_vec();
-
-    while data.len() % 16 != 0 {
-        data.push(0x04);
-    }
+    let data: Vec<u8> = pkcs7(input.to_vec(), 16);
 
     for block in data.chunks(16) {
         let mut xored: Vec<u8> = Vec::new();
@@ -93,11 +91,7 @@ fn aes_cbc_encrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
 fn encryption_oracle(input: &[u8]) -> Vec<u8> {
     let mut rng: ThreadRng = rand::rng();
 
-    let mut data: Vec<u8> = input.to_vec();
-
-    while data.len() % 16 != 0 {
-        data.push(0x04);
-    }
+    let data: Vec<u8> = pkcs7(input.to_vec(), 16);
 
     let mut encrypted: Vec<u8> = random_key(rng.random_range(5..=10));
     let end: Vec<u8> = random_key(rng.random_range(5..=10));
@@ -119,6 +113,25 @@ fn encryption_oracle(input: &[u8]) -> Vec<u8> {
     encrypted.extend(end);
 
     encrypted
+}
+
+// This works provided the message is long enough to detect repeated blocks.
+// i.e. chosen ciphertext attack.
+fn inspect_oracle(input: Vec<u8>) -> String {
+    let num_blocks: usize = input.len() / 16;
+
+    let blocks: Vec<&[u8]> = input.chunks(16).take(num_blocks).collect::<Vec<_>>();
+
+    let unique: HashSet<&[u8]> = blocks.iter().cloned().collect();
+
+    let identical: usize = blocks.len() - unique.len();
+    println!("{}", identical);
+
+    if identical > 0 {
+        "ECB Mode".to_string()
+    } else {
+        "CBC Mode".to_string()
+    }
 }
 
 pub fn set_2(part: &str, input: &str) {
@@ -166,9 +179,10 @@ pub fn set_2(part: &str, input: &str) {
             println!("{:?}", String::from_utf8(result).unwrap());
         }
         "3" => {
-            let data = input.as_bytes();
-            let encrypted = encryption_oracle(data);
+            let data = pkcs7(input.as_bytes().to_vec(), 16);
+            let encrypted: Vec<u8> = encryption_oracle(data.as_slice());
             println!("Orace produced: {:?}", encrypted);
+            println!("{}", inspect_oracle(encrypted))
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }
