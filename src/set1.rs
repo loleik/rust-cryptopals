@@ -214,14 +214,14 @@ mod tests {
     use crate::set1::{hex_to_base64, fixed_xor, single_byte_xor, repeating_key_xor};
 
     #[test]
-    fn test_1() {
+    fn test_hex_b64() {
         let input: &str = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d";
         let expected: &str = "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t";
         assert_eq!(expected, hex_to_base64(input));
     }
 
     #[test]
-    fn test_2() {
+    fn test_fixed_xor() {
         let input: &str = "1c0111001f010100061a024b53535009181c";
         let target: &str = "686974207468652062756c6c277320657965";
         let expected: &str = "746865206b696420646f6e277420706c6179";
@@ -229,7 +229,7 @@ mod tests {
     }
 
     #[test]
-    fn test_3() {
+    fn test_single_byte_xor() {
         let input: &str = "0429202023606c3824253f6c253f6c2d6c38293f38";
         let expected: (char, String, f64) = ('L', "Hello, this is a test".to_string(), 111.393);
         let output: (char, String, f64) = single_byte_xor(input).unwrap_or((' ', "".to_string(), 0.));
@@ -242,7 +242,7 @@ mod tests {
     }*/
 
     #[test]
-    fn test_5() {
+    fn test_repeating_key_xor() {
         let input: &str = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
         let key: &str = "ICE";
         let expected: &str = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";

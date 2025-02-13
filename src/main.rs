@@ -1,6 +1,7 @@
 use clap::{arg, Command};
 
 mod set1;
+mod set2;
 mod utils;
 
 /*
@@ -35,6 +36,7 @@ fn main() {
 
             match set_num.as_str() {
                 "1" => set1::set_1(&part_num, &input),
+                "2" => set2::set_2(&part_num, &input),
                 _ => println!("Invalid set number: {}", set_num),
             }
         },
