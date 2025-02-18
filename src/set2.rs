@@ -7,6 +7,7 @@ use aes::cipher::{
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::OnceLock;
+use regex::Regex;
 
 static CHALLENGE_12: OnceLock<Vec<u8>> = OnceLock::new();
 
@@ -14,7 +15,7 @@ fn gen_key() -> &'static Vec<u8> {
     CHALLENGE_12.get_or_init(|| random_key(16))
 }
 
-use crate::utils::{base64_file_decode, random_key, test_ecb};
+use crate::utils::{base64_file_decode, random_key, test_ecb, strip_pkcs7_padding};
 
 fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
     let mut padded:Vec<u8> = input.clone();
@@ -45,12 +46,17 @@ fn aes_block_encrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
 
 fn aes_block_decrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
     let cipher_key = GenericArray::from_slice(key);
-    let mut block = *GenericArray::from_slice(input);
     let cipher = Aes128::new(cipher_key);
 
-    cipher.decrypt_block(&mut block);
+    let mut decrypted_blocks: Vec<u8> = Vec::new();
 
-    block.to_vec()
+    for block in input.chunks(16) {
+        let mut block_array: GenericArray<u8, _> = GenericArray::clone_from_slice(block);
+        cipher.decrypt_block(&mut block_array);
+        decrypted_blocks.extend_from_slice(&block_array);
+    }
+
+    decrypted_blocks
 }
 
 fn aes_cbc_decrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
@@ -157,7 +163,7 @@ fn ecb_oracle(input: &[u8]) -> Vec<u8> {
     encrypted
 }
 
-fn inspect_c12(input: &[u8]) {
+fn inspect_c12(input: &[u8]) -> Vec<u8> {
     let mut i: usize = 0;
     let mut input_mut: Vec<u8> = input.to_vec();
     let mut prev_ctxt: Vec<u8> = Vec::new();
@@ -213,16 +219,7 @@ fn inspect_c12(input: &[u8]) {
             vec![input[0]; modifier].as_slice()
         );
 
-        println!("input: {:?}", test_input);
-
         let relevant_block: Vec<u8> = actual[blocks_found * block_size..(blocks_found + 1) * block_size].to_vec();
-
-        println!(
-            "Found: {}",
-            String::from_utf8(
-                vec![*dict.get(&relevant_block).unwrap()]
-            ).unwrap(),
-        );
 
         working_block[0] = *dict.get(&relevant_block).unwrap();
         working_block.push_front(*dict.get(&relevant_block).unwrap());
@@ -243,11 +240,66 @@ fn inspect_c12(input: &[u8]) {
         }
     }
 
-    println!("Decrypted: {:?}", String::from_utf8(decrypted).unwrap());
+    decrypted
+}
+
+fn k_equals_v(input: &str) -> HashMap<String, String> {
+    let re: Regex = Regex::new(r"^([a-zA-Z0-9]+=[a-zA-Z0-9@._-]+)(?:&[a-zA-Z0-9]+=[a-zA-Z0-9@._-]+)*$").unwrap();
+
+    if !re.captures(input).is_some() {
+        println!("Invalid input: {}", input);
+        return HashMap::new()
+    } else {
+        let mut map: HashMap<String, String> = HashMap::new();
+
+        for pair in input.split('&') {
+            let kv: Vec<&str> = pair.split('=').collect();
+            map.insert(kv[0].to_string(), kv[1].to_string());
+        }
+
+        map
+    }
+}
+
+fn profile_for(input: &str) -> String {
+    let re: Regex = Regex::new(r"^[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[a-zA-Z0-9]+$").unwrap();
+
+    if !re.captures(input).is_some() {
+        println!("Invalid input");
+        return "".to_string()
+    } else {
+        "email=".to_string() + input + "&uid=10&role=user"
+    }
+}
+
+fn challenge_13_encrypt(input: &[u8]) -> Vec<u8> {
+    let key: &[u8] = gen_key().as_slice();
+
+    let mut data: Vec<u8> = input.to_vec();
+
+    data = pkcs7(data, 16);
+
+    let encrypted: Vec<u8> = aes_block_encrypt(
+            data.as_slice(),
+            key
+    );
+
+    encrypted
+}
+
+fn challenge_13_decrypt(input: &[u8]) -> Vec<u8> {
+    let key: &[u8] = gen_key().as_slice();
+
+    let decrypted: Vec<u8> = aes_block_decrypt(
+        input,
+        key
+    );
+
+    strip_pkcs7_padding(decrypted)
 }
 
 pub fn set_2(part: &str, input: &str) {
-    println!("Input: {}", input);
+    println!("Input: {} {}", input, input.len());
 
     match part {
         "1" => {
@@ -298,7 +350,42 @@ pub fn set_2(part: &str, input: &str) {
         }
         "4" => {
             let data: &[u8] = input.as_bytes();
-            inspect_c12(data);
+            let result: Vec<u8> = inspect_c12(data);
+
+            println!("{:?}", String::from_utf8(result).unwrap());
+        }
+        "5" => {
+            let mut data: Vec<u8> = input.as_bytes().to_vec();
+
+            while data.len() < 29 {
+                data.insert(0, 'e' as u8);
+            }
+
+            println!("Fake email: {} {}", String::from_utf8(data.clone()).unwrap(), data.len());
+
+            let encrypted: Vec<u8> = challenge_13_encrypt(
+                profile_for(
+                    String::from_utf8(data).unwrap().as_str()
+                ).as_bytes()
+            );
+
+            let mut blocks: Vec<&[u8]> = encrypted.chunks(16).collect::<Vec<_>>();
+
+            let admin: Vec<u8> = challenge_13_encrypt("admin".as_bytes());
+
+            blocks.remove(blocks.len() - 1);
+            blocks.push(&admin.as_slice());
+
+            let decrypted: Vec<u8> = challenge_13_decrypt(&blocks.concat());
+
+            let profile: HashMap<String, String> = k_equals_v(&String::from_utf8(decrypted).unwrap());
+
+            println!("Admin profile generated:");
+            println!("{{");
+            println!("    email: {}", profile.get("email").unwrap());
+            println!("    uid: {}", profile.get("uid").unwrap());
+            println!("    role: {}", profile.get("role").unwrap());
+            println!("}}");
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }

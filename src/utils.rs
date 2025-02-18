@@ -101,3 +101,12 @@ pub fn test_ecb(ctxt: Vec<u8>) -> bool {
 
     if identical > 0 { true } else { false }
 }
+
+pub fn strip_pkcs7_padding(data: Vec<u8>) -> Vec<u8> {
+    let mut output: Vec<u8> = data.clone();
+
+    let padding: u8 = *output.last().unwrap();
+    output.truncate(output.len() - padding as usize);
+
+    output
+}
