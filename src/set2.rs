@@ -10,9 +10,13 @@ use std::sync::OnceLock;
 use regex::Regex;
 
 static CHALLENGE_12: OnceLock<Vec<u8>> = OnceLock::new();
+static CHALLENGE_14: OnceLock<Vec<u8>> = OnceLock::new();
 
 fn gen_key() -> &'static Vec<u8> {
     CHALLENGE_12.get_or_init(|| random_key(16))
+}
+fn gen_prefix() -> &'static Vec<u8> {
+    CHALLENGE_14.get_or_init(|| random_key(rand::rng().random_range(5..=10)))
 }
 
 use crate::utils::{base64_file_decode, random_key, test_ecb, strip_pkcs7_padding};
@@ -298,6 +302,136 @@ fn challenge_13_decrypt(input: &[u8]) -> Vec<u8> {
     strip_pkcs7_padding(decrypted)
 }
 
+fn ch14_oracle(input: &[u8]) -> Vec<u8> {
+    let key: &[u8] = gen_key().as_slice();
+    let prefix: &[u8] = gen_prefix().as_slice();
+
+    let mut data: Vec<u8> = prefix.to_vec();
+    data.extend(input.to_vec());
+    data.extend(base64_file_decode("input.txt"));
+    data = pkcs7(data, 16);
+
+    let encrypted: Vec<u8> = aes_block_encrypt(
+            data.as_slice(),
+            key
+    );
+
+    encrypted
+}
+
+fn c14_inspect(input: &[u8]) {
+    let mut i: usize = 0;
+    let mut input_mut: Vec<u8> = input.to_vec();
+    let block_size: usize;
+    let empty_text: Vec<u8> = ch14_oracle(b"");
+
+    // Determine the block size. We need this to work out the prefix length.
+    loop {
+        let ctxt: Vec<u8> = ch14_oracle(&input_mut);
+
+        if ctxt.len() > empty_text.len() {
+            println!("BLOCK SIZE = {}", ctxt.len() - empty_text.len());
+            block_size = ctxt.len() - empty_text.len();
+            break;
+        }
+
+        i += 1;
+        input_mut.push(input[0]);
+    }
+
+    assert_eq!(block_size, 16);
+
+    // Now check it si ecb.
+    let ecb_check: [u8; 32] = [input[0]; 32];
+    let test_ctxt: Vec<u8> = ch14_oracle(&ecb_check);
+
+    if test_ecb(test_ctxt) { println!("ECB DETECTED") }
+    
+    // Now work out the current prefix length.
+    i = 0;
+    input_mut = input.to_vec();
+    let mut prev_ctxt: Vec<u8> = Vec::new();
+    let prefix_size: usize;
+
+    loop {
+        let ctxt: Vec<u8> = ch14_oracle(&input_mut);
+
+        let try_block: Vec<u8> = ctxt[0..input_mut.len()-1].to_vec();
+        let prev_block: Vec<u8> = if i > 0 {
+            prev_ctxt[0..input_mut.len()-1].to_vec()
+        } else {
+            Vec::new()
+        };
+
+        if try_block == prev_block && try_block.len() > 0 {
+            prefix_size = block_size - try_block.len();
+            println!("PREFIX SIZE = {}", prefix_size);
+            break;
+        } else {
+            prev_ctxt = ctxt;
+        }
+
+        i += 1;
+        input_mut.push(input[0]);
+    }
+
+    let size: usize = empty_text.len() - prefix_size;
+
+    let mut test_input: Vec<u8> = vec![input[0]; block_size];
+    let mut working_block: VecDeque<u8> = VecDeque::from(test_input.clone());
+    let mut decrypted: Vec<u8> = Vec::new();
+    let mut x: usize = 0;
+    let mut blocks_found: usize = 0;
+
+    loop {
+        let mut dict: HashMap<Vec<u8>, u8> = HashMap::new();
+
+        for i in 0..=255 {
+            println!("{} {:?}", i, test_input);
+            test_input[block_size - 1] = i;
+            let ctxt: Vec<u8> = wrapper_oracle(
+                ch14_oracle(&test_input)
+                , prefix_size, block_size
+            );
+            dict.insert(ctxt[0..block_size].to_vec(), i);
+        }
+
+        let modifier: usize = block_size - (x % block_size) - 1;
+
+        let actual: Vec<u8> = wrapper_oracle(ch14_oracle(
+            vec![input[0]; modifier].as_slice()
+        ), prefix_size, block_size);
+
+        let relevant_block: Vec<u8> = actual[blocks_found * block_size..(blocks_found + 1) * block_size].to_vec();
+
+        working_block[0] = *dict.get(&relevant_block).unwrap();
+        working_block.push_front(*dict.get(&relevant_block).unwrap());
+        working_block.pop_back();
+
+        test_input = working_block.iter().rev().cloned().collect();
+
+        x += 1;
+
+        decrypted.push(*dict.get(&relevant_block).unwrap());
+
+        if x % block_size == 0 {
+            blocks_found += 1;
+        }
+
+        if x == size - 6 {
+            break;
+        }
+    }
+}
+
+// Turns the problem from challenge 14 into a challenge 12 problem.
+fn wrapper_oracle(ctxt: Vec<u8>, prefix_size: usize, block_size: usize) -> Vec<u8> {
+    let mut new_ctxt: Vec<u8> = pkcs7(ctxt[0..prefix_size].to_vec(), block_size);
+    new_ctxt.extend(ctxt[prefix_size..].to_vec());
+    new_ctxt = new_ctxt[block_size..].to_vec();
+    new_ctxt
+}
+
 pub fn set_2(part: &str, input: &str) {
     println!("Input: {} {}", input, input.len());
 
@@ -386,6 +520,9 @@ pub fn set_2(part: &str, input: &str) {
             println!("    uid: {}", profile.get("uid").unwrap());
             println!("    role: {}", profile.get("role").unwrap());
             println!("}}");
+        }
+        "6" => {
+            c14_inspect(input.as_bytes());
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }
