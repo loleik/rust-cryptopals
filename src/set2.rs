@@ -188,44 +188,61 @@ fn inspect_c12(input: &[u8]) {
     // Sufficiently long to cause repeated blocks
     let ecb_check: [u8; 32] = [input[0]; 32];
     let test_ctxt: Vec<u8> = ecb_oracle(&ecb_check);
+    let size: usize = test_ctxt.len() - 32;
 
     if test_ecb(test_ctxt) { println!("ECB DETECTED") }
 
-    let mut first_test: Vec<u8> = vec![input[0]; block_size];
-    let mut decrypted: VecDeque<u8> = VecDeque::from(first_test.clone());
+    let mut test_input: Vec<u8> = vec![input[0]; block_size];
+    let mut working_block: VecDeque<u8> = VecDeque::from(test_input.clone());
+    let mut decrypted: Vec<u8> = Vec::new();
+    let mut x: usize = 0;
+    let mut blocks_found: usize = 0;
 
-    for x in 0..15 {
+    loop {
         let mut dict: HashMap<Vec<u8>, u8> = HashMap::new();
 
         for i in 0..=255 {
-            first_test[block_size - 1] = i;
-            //println!("{first_test:?}");
-            let ctxt: Vec<u8> = ecb_oracle(&first_test);
+            test_input[block_size - 1] = i;
+            let ctxt: Vec<u8> = ecb_oracle(&test_input);
             dict.insert(ctxt[0..block_size].to_vec(), i);
         }
 
-        let actual: Vec<u8> = ecb_oracle(vec![input[0]; block_size - x - 1].as_slice());
+        let modifier: usize = block_size - (x % block_size) - 1;
+
+        let actual: Vec<u8> = ecb_oracle(
+            vec![input[0]; modifier].as_slice()
+        );
+
+        println!("input: {:?}", test_input);
+
+        let relevant_block: Vec<u8> = actual[blocks_found * block_size..(blocks_found + 1) * block_size].to_vec();
 
         println!(
             "Found: {}",
             String::from_utf8(
-                vec![*dict.get(&actual[0..block_size].to_vec()).unwrap()]
+                vec![*dict.get(&relevant_block).unwrap()]
             ).unwrap(),
         );
 
-        decrypted[0] = *dict.get(&actual[0..block_size].to_vec()).unwrap();
-        if decrypted.iter().last().unwrap() == &input[0] {
-            decrypted.push_front(input[0]);
-            decrypted.pop_back();
+        working_block[0] = *dict.get(&relevant_block).unwrap();
+        working_block.push_front(*dict.get(&relevant_block).unwrap());
+        working_block.pop_back();
+
+        test_input = working_block.iter().rev().cloned().collect();
+
+        x += 1;
+
+        if x % block_size == 0 {
+            blocks_found += 1;
+            decrypted.extend(working_block.iter().rev().cloned());
         }
 
-        first_test = decrypted.iter().rev().cloned().collect();
+        if x == size - 5 {
+            break;
+        }
     }
 
-    for x in decrypted.iter().rev() {
-        print!("{}", *x as char);
-    }
-    println!()
+    println!("Decrypted: {:?}", String::from_utf8(decrypted).unwrap());
 }
 
 pub fn set_2(part: &str, input: &str) {
