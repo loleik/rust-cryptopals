@@ -232,12 +232,13 @@ fn inspect_c12(input: &[u8]) {
 
         x += 1;
 
+        decrypted.push(*dict.get(&relevant_block).unwrap());
+
         if x % block_size == 0 {
             blocks_found += 1;
-            decrypted.extend(working_block.iter().rev().cloned());
         }
 
-        if x == size - 5 {
+        if x == size - 6 {
             break;
         }
     }
