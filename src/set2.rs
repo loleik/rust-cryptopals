@@ -5,9 +5,16 @@ use aes::cipher::{
     generic_array::GenericArray,
 };
 use rand::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::OnceLock;
 
-use crate::utils::{base64_file_decode, random_key};
+static CHALLENGE_12: OnceLock<Vec<u8>> = OnceLock::new();
+
+fn gen_key() -> &'static Vec<u8> {
+    CHALLENGE_12.get_or_init(|| random_key(16))
+}
+
+use crate::utils::{base64_file_decode, random_key, test_ecb};
 
 fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
     let mut padded:Vec<u8> = input.clone();
@@ -125,13 +132,100 @@ fn inspect_oracle(input: Vec<u8>) -> String {
     let unique: HashSet<&[u8]> = blocks.iter().cloned().collect();
 
     let identical: usize = blocks.len() - unique.len();
-    println!("{}", identical);
 
     if identical > 0 {
         "ECB Mode".to_string()
     } else {
         "CBC Mode".to_string()
     }
+}
+
+fn ecb_oracle(input: &[u8]) -> Vec<u8> {
+    let key: &[u8] = gen_key().as_slice();
+
+    let mut data: Vec<u8> = input.to_vec();
+
+    data.extend(base64_file_decode("input.txt"));
+
+    data = pkcs7(data, 16);
+
+    let encrypted: Vec<u8> = aes_block_encrypt(
+            data.as_slice(),
+            key
+    );
+
+    encrypted
+}
+
+fn inspect_c12(input: &[u8]) {
+    let mut i: usize = 0;
+    let mut input_mut: Vec<u8> = input.to_vec();
+    let mut prev_ctxt: Vec<u8> = Vec::new();
+    let block_size: usize;
+
+    loop {
+        let ctxt: Vec<u8> = ecb_oracle(&input_mut);
+
+        let try_block: Vec<u8> = ctxt[0..input_mut.len()-1].to_vec();
+        let prev_block: Vec<u8> = if i > 0 {
+            prev_ctxt[0..input_mut.len()-1].to_vec()
+        } else {
+            Vec::new()
+        };
+
+        if try_block == prev_block && try_block.len() > 0 {
+            println!("BLOCK SIZE = {}", try_block.len());
+            block_size = try_block.len();
+            break;
+        } else {
+            prev_ctxt = ctxt;
+        }
+
+        i += 1;
+        input_mut.push(input[0]);
+    }
+
+    // Sufficiently long to cause repeated blocks
+    let ecb_check: [u8; 32] = [input[0]; 32];
+    let test_ctxt: Vec<u8> = ecb_oracle(&ecb_check);
+
+    if test_ecb(test_ctxt) { println!("ECB DETECTED") }
+
+    let mut first_test: Vec<u8> = vec![input[0]; block_size];
+    let mut decrypted: VecDeque<u8> = VecDeque::from(first_test.clone());
+
+    for x in 0..15 {
+        let mut dict: HashMap<Vec<u8>, u8> = HashMap::new();
+
+        for i in 0..=255 {
+            first_test[block_size - 1] = i;
+            //println!("{first_test:?}");
+            let ctxt: Vec<u8> = ecb_oracle(&first_test);
+            dict.insert(ctxt[0..block_size].to_vec(), i);
+        }
+
+        let actual: Vec<u8> = ecb_oracle(vec![input[0]; block_size - x - 1].as_slice());
+
+        println!(
+            "Found: {}",
+            String::from_utf8(
+                vec![*dict.get(&actual[0..block_size].to_vec()).unwrap()]
+            ).unwrap(),
+        );
+
+        decrypted[0] = *dict.get(&actual[0..block_size].to_vec()).unwrap();
+        if decrypted.iter().last().unwrap() == &input[0] {
+            decrypted.push_front(input[0]);
+            decrypted.pop_back();
+        }
+
+        first_test = decrypted.iter().rev().cloned().collect();
+    }
+
+    for x in decrypted.iter().rev() {
+        print!("{}", *x as char);
+    }
+    println!()
 }
 
 pub fn set_2(part: &str, input: &str) {
@@ -179,10 +273,14 @@ pub fn set_2(part: &str, input: &str) {
             println!("{:?}", String::from_utf8(result).unwrap());
         }
         "3" => {
-            let data = pkcs7(input.as_bytes().to_vec(), 16);
+            let data: Vec<u8> = pkcs7(input.as_bytes().to_vec(), 16);
             let encrypted: Vec<u8> = encryption_oracle(data.as_slice());
             println!("Orace produced: {:?}", encrypted);
             println!("{}", inspect_oracle(encrypted))
+        }
+        "4" => {
+            let data: &[u8] = input.as_bytes();
+            inspect_c12(data);
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }

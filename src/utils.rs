@@ -3,6 +3,7 @@ use std::io::{self, BufRead};
 use std::path::Path;
 use base64::prelude::*;
 use rand::prelude::*;
+use std::collections::HashSet;
 
 #[cfg(test)]
 mod tests {
@@ -90,4 +91,13 @@ pub fn random_key(size: usize) -> Vec<u8> {
     }
 
     key
+}
+
+pub fn test_ecb(ctxt: Vec<u8>) -> bool {
+    let test_blocks: Vec<&[u8]> = ctxt.chunks(16).collect();
+
+    let unique: HashSet<&[u8]> = test_blocks.iter().cloned().collect();
+    let identical: usize = test_blocks.len() - unique.len();
+
+    if identical > 0 { true } else { false }
 }
