@@ -430,6 +430,35 @@ fn drop_block(ctxt: Vec<u8>, block_size: usize) -> Vec<u8> {
     ctxt[block_size..].to_vec()
 }
 
+fn validate_pkcs7(input: &Vec<u8>) -> bool {
+    let padding: u8 = *input.last().unwrap();
+
+    if padding == 0 || padding > 16 {
+        return false
+    }
+
+    for i in 0..padding {
+        if input[input.len() - 1 - i as usize] != padding {
+            return false
+        }
+    }
+
+    true
+}
+
+fn challenge_15(input: &str) -> Option<String> {
+    let data: Vec<u8> = input.as_bytes().to_vec();
+
+    let result: Option<String> = if validate_pkcs7(&data) {
+        Some(String::from_utf8(strip_pkcs7_padding(data)).unwrap())
+    } else {
+        println!("Invalid padding");
+        None
+    };
+
+    result
+}
+
 pub fn set_2(part: &str, input: &str) {
     println!("Input: {} {}", input, input.len());
 
@@ -523,6 +552,14 @@ pub fn set_2(part: &str, input: &str) {
             let out: Vec<u8> = c14_inspect(input.as_bytes());
             println!("{:?}", String::from_utf8(out).unwrap());
         }
+        "7" => {
+            let result: Option<String> = challenge_15(input);
+
+            match result {
+                Some(s) => println!("Valid padding: {}", s),
+                None => println!("Invalid padding")
+            }
+        }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }
 }
@@ -531,7 +568,8 @@ pub fn set_2(part: &str, input: &str) {
 mod tests {
     use base64::{prelude::BASE64_STANDARD, Engine};
 
-    use crate::set2::{aes_block_decrypt, aes_block_encrypt, aes_cbc_decrypt, aes_cbc_encrypt, pkcs7};
+    use crate::set2::{aes_block_decrypt, aes_block_encrypt, aes_cbc_decrypt, aes_cbc_encrypt, 
+        pkcs7, challenge_15};
 
     #[test]
     fn test_pkcs7() {
@@ -597,5 +635,21 @@ mod tests {
             expected,
             String::from_utf8(aes_cbc_decrypt(&input, key.as_bytes(), iv.as_slice())).unwrap()
         )
+    }
+
+    #[test]
+    fn test_validate_pkcs7() {
+        let input_1: String = "ICE ICE BABY\x04\x04\x04\x04".to_owned();
+        let result_1: Option<String> = Some("ICE ICE BABY".to_owned());
+
+        let input_2: String= "ICE ICE BABY\x05\x05\x05\x05".to_owned();
+        let result_2: Option<String> = None;
+
+        let input_3: String = "ICE ICE BABY\x01\x02\x03\x04".to_owned();
+        let result_3: Option<String> = None;
+
+        assert_eq!(result_1, challenge_15(&input_1));
+        assert_eq!(result_2, challenge_15(&input_2));
+        assert_eq!(result_3, challenge_15(&input_3));
     }
 }
