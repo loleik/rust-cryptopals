@@ -140,7 +140,7 @@ fn break_repeating_key_xor(input: &str) {
 }
 
 fn aes_ecb_decrypt(input: &str, key: &str, test: bool) -> String {
-    let data = if !test {
+    let data: Vec<u8> = if !test {
         base64_file_decode(input)
     } else {
         BASE64_STANDARD.decode(input).unwrap()
@@ -174,13 +174,13 @@ fn detect_aes_ecb(input: &str) -> Vec<u8> {
     current_max.1
 }
 
-pub fn set_1(part: &str, input: &str) {
+pub fn set_1(challenge: &usize, input: &str) {
     println!("Input: {input}");
-    match part {
-        "1" => {
+    match challenge {
+        1 => {
             println!("Base 64: {}", hex_to_base64(input));
         },
-        "2" => {
+        2 => {
             // Should be rewritten to allow target to be inputted using the CLI
             let input_bytes: Vec<u8> = hex::decode(input)
                 .expect("Invalid input string");
@@ -190,27 +190,27 @@ pub fn set_1(part: &str, input: &str) {
             println!("Target: {target}");
             println!("XOR Result: {}", fixed_xor(input_bytes, target_bytes));
         },
-        "3" => {
+        3 => {
             let result: (char, String, f64) = single_byte_xor(input).unwrap_or((' ', "".to_string(), 0.));
             println!("Found: {:?}", result);
         },
-        "4" => {
+        4 => {
             let result: (char, String, f64) = detect_single_byte_xor(input, true);
             println!("Found: {}", result.1.trim_end());
             println!("Key: {} Score: {}", result.0, result.2);
         },
-        "5" => {
+        5 => {
             let result: String = repeating_key_xor(input, "ICE", false);
             println!("Result: {}", result);
         },
-        "6" => {
+        6 => {
             break_repeating_key_xor(input);
         },
-        "7" => {
+        7 => {
             let result: String = aes_ecb_decrypt(input, "YELLOW SUBMARINE", false);
             println!("Result: {}", result);
         },
-        "8" => {
+        8 => {
             let result: Vec<u8> = detect_aes_ecb(input);
             println!("Result: {:?}", hex::encode(result));
         },

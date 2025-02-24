@@ -513,7 +513,6 @@ fn challenge_16_decrypt(ctxt: Vec<u8>) -> bool {
 
     for x in output {
         if x.contains("admin=true") && !x.contains("userdata=") {
-            println!("Admin access granted");
             return true
         }
     }
@@ -521,11 +520,11 @@ fn challenge_16_decrypt(ctxt: Vec<u8>) -> bool {
     false
 }
 
-pub fn set_2(part: &str, input: &str) {
+pub fn set_2(challenge: &usize, input: &str) {
     println!("Input: {} {}", input, input.len());
 
-    match part {
-        "1" => {
+    match challenge {
+        9 => {
             loop {
                 print!("Enter desired block length: ");
 
@@ -553,7 +552,7 @@ pub fn set_2(part: &str, input: &str) {
                 }
             }
         }
-        "2" => {
+        10 => {
             let key: &str = "YELLOW SUBMARINE";
             let iv: Vec<u8> = vec![0; 16];
             let data: Vec<u8> = base64_file_decode(input);
@@ -565,19 +564,19 @@ pub fn set_2(part: &str, input: &str) {
 
             println!("{:?}", String::from_utf8(result).unwrap());
         }
-        "3" => {
+        11 => {
             let data: Vec<u8> = pkcs7(input.as_bytes().to_vec(), 16);
             let encrypted: Vec<u8> = encryption_oracle(data.as_slice());
             println!("Orace produced: {:?}", encrypted);
             println!("{}", inspect_oracle(encrypted))
         }
-        "4" => {
+        12 => {
             let data: &[u8] = input.as_bytes();
             let result: Vec<u8> = inspect_c12(data);
 
             println!("{:?}", String::from_utf8(result).unwrap());
         }
-        "5" => {
+        13 => {
             let mut data: Vec<u8> = input.as_bytes().to_vec();
 
             while data.len() < 29 {
@@ -610,11 +609,11 @@ pub fn set_2(part: &str, input: &str) {
             println!("    role: {}", profile.get("role").unwrap());
             println!("}}");
         }
-        "6" => {
+        14 => {
             let out: Vec<u8> = c14_inspect(input.as_bytes());
             println!("{:?}", String::from_utf8(out).unwrap());
         }
-        "7" => {
+        15 => {
             let result: Option<String> = challenge_15(input);
 
             match result {
@@ -622,7 +621,7 @@ pub fn set_2(part: &str, input: &str) {
                 None => println!("Invalid padding")
             }
         }
-        "8" => {
+        16 => {
             let encoded: String = input.replace(';', "%3B").replace('=', "%3D");
             if encoded.len() > 1 {
                 println!("Please provide a single character as input.")
@@ -631,7 +630,7 @@ pub fn set_2(part: &str, input: &str) {
                 println!("Admin access: {}", challenge_16_decrypt(ctxt));
             }
         }
-        _ => println!("Invalid part number or not implemented yet: {}", part),
+        _ => println!("Invalid challenge number or not implemented yet: {}", challenge),
     }
 }
 

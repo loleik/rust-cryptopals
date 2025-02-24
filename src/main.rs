@@ -18,8 +18,7 @@ fn cli() -> Command {
         .subcommand(
             Command::new("run")
                 .about("Run a specific part of a set with a specified input")
-                .arg(arg!(<SET> "Set number"))
-                .arg(arg!(<PART> "Part number"))
+                .arg(arg!(<CHALLENGE> "Set number"))
                 .arg(arg!(<INPUT> "Input string or file path"))
                 .arg_required_else_help(true)
         )
@@ -30,14 +29,17 @@ fn main() {
 
     match matches.subcommand() {
         Some(("run", sub_matches)) => {
-            let set_num: &String = sub_matches.get_one::<String>("SET").expect("Required");
-            let part_num: &String = sub_matches.get_one::<String>("PART").expect("Required");
+            let challenge: usize = sub_matches.get_one::<String>("CHALLENGE")
+                    .expect("Required")
+                    .parse().expect("Invalid set number");
             let input: &String = sub_matches.get_one::<String>("INPUT").expect("Required");
 
-            match set_num.as_str() {
-                "1" => set1::set_1(&part_num, &input),
-                "2" => set2::set_2(&part_num, &input),
-                _ => println!("Invalid set number: {}", set_num),
+            match challenge {
+                1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => 
+                    set1::set_1(&challenge, &input),
+                9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 => 
+                    set2::set_2(&challenge, &input),
+                _ => println!("Invalid challenge number: {}", challenge),
             }
         },
         _ => println!("Invalid subcommand: {}", matches.subcommand().unwrap().0),
