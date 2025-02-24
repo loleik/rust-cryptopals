@@ -25,9 +25,7 @@ fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
     let mut padded:Vec<u8> = input.clone();
     let padding: usize = block_size - (input.len() % block_size);
 
-    while padded.len() % block_size != 0 {
-        padded.push(padding as u8);
-    }
+    padded.extend(vec![padding as u8; padding]);
 
     padded
 }
@@ -67,7 +65,7 @@ pub fn aes_cbc_decrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
     let mut previous_block: Vec<u8> = iv.to_vec();
 
-    let data: Vec<u8> = pkcs7(input.to_vec(), 16);
+    let data: Vec<u8> = input.to_vec();
 
     for block in data.chunks(16) {
         let decrypted = aes_block_decrypt(block, key);
@@ -433,7 +431,11 @@ fn drop_block(ctxt: Vec<u8>, block_size: usize) -> Vec<u8> {
 pub fn validate_pkcs7(input: &Vec<u8>) -> bool {
     let padding: u8 = *input.last().unwrap();
 
-    if padding == 0 || padding > 16 {
+    if input.len() == 0 || input.len() % 16 != 0 {
+        return false;
+    }
+
+    if padding == 0 {
         return false
     }
 
@@ -640,6 +642,7 @@ mod tests {
 
     use crate::set2::{aes_block_decrypt, aes_block_encrypt, aes_cbc_decrypt, aes_cbc_encrypt, 
         pkcs7, challenge_15};
+    use crate::utils::strip_pkcs7_padding;
 
     #[test]
     fn test_pkcs7() {
@@ -684,7 +687,7 @@ mod tests {
         let key: &str = "YELLOW SUBMARINE";
         let iv: Vec<u8> = vec![0; 16];
         
-        let expected: &str = "SsY9vv18Zt6Cf9jSsHFwHg==";
+        let expected: &str = "SsY9vv18Zt6Cf9jSsHFwHsnLn5mDfB4tiHeu330teJ4=";
 
         assert_eq!(
             expected,
@@ -695,15 +698,16 @@ mod tests {
     #[test]
     fn test_cbc_decrypt() {
         let input: Vec<u8> = BASE64_STANDARD.decode(
-            "SsY9vv18Zt6Cf9jSsHFwHg=="
+            "SsY9vv18Zt6Cf9jSsHFwHsnLn5mDfB4tiHeu330teJ4="
         ).unwrap();
         let key: &str = "YELLOW SUBMARINE";
         let expected: &str = "This is a test?!";
         let iv: Vec<u8> = vec![0; 16];
+        let result = aes_cbc_decrypt(&input, key.as_bytes(), iv.as_slice());
 
         assert_eq!(
             expected,
-            String::from_utf8(aes_cbc_decrypt(&input, key.as_bytes(), iv.as_slice())).unwrap()
+            String::from_utf8(strip_pkcs7_padding(result)).unwrap()
         )
     }
 

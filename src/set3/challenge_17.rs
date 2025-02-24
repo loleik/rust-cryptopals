@@ -40,6 +40,8 @@ fn challenge_17_encrypt() -> (Vec<u8>, Vec<u8>) {
 fn cbc_padding_oracle(ctxt: &Vec<u8>, iv: Vec<u8>) -> bool {
     let ptxt: Vec<u8> = aes_cbc_decrypt(ctxt, gen_key(), &iv);
 
+    println!("{:?}", String::from_utf8(ptxt.clone()).unwrap());
+
     if validate_pkcs7(&ptxt) {
         println!("Valid padding");
         return true
