@@ -63,7 +63,7 @@ fn aes_block_decrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
     decrypted_blocks
 }
 
-fn aes_cbc_decrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
+pub fn aes_cbc_decrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
     let mut previous_block: Vec<u8> = iv.to_vec();
 
@@ -84,7 +84,7 @@ fn aes_cbc_decrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     output
 }
 
-fn aes_cbc_encrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
+pub fn aes_cbc_encrypt(input: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
     let mut previous_block: Vec<u8> = iv.to_vec();
 
@@ -430,7 +430,7 @@ fn drop_block(ctxt: Vec<u8>, block_size: usize) -> Vec<u8> {
     ctxt[block_size..].to_vec()
 }
 
-fn validate_pkcs7(input: &Vec<u8>) -> bool {
+pub fn validate_pkcs7(input: &Vec<u8>) -> bool {
     let padding: u8 = *input.last().unwrap();
 
     if padding == 0 || padding > 16 {

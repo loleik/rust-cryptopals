@@ -1,9 +1,10 @@
 use clap::{arg, Command};
+use set3::*;
 
 mod set1;
 mod set2;
-mod set3;
 mod utils;
+mod set3;
 
 /*
     This is pretty much the git example found here:
@@ -40,8 +41,8 @@ fn main() {
                     set1::set_1(&challenge, &input),
                 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 => 
                     set2::set_2(&challenge, &input),
-                17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 => 
-                    set3::set_3(&challenge, &input),
+                17 => 
+                    challenge_17(&input),
                 _ => println!("Invalid challenge number: {}", challenge),
             }
         },
