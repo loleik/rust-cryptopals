@@ -319,7 +319,7 @@ fn ch14_oracle(input: &[u8]) -> Vec<u8> {
     encrypted
 }
 
-fn c14_inspect(input: &[u8]) {
+fn c14_inspect(input: &[u8]) -> Vec<u8> {
     let mut i: usize = 0;
     let mut input_mut: Vec<u8> = input.to_vec();
     let block_size: usize;
@@ -377,7 +377,7 @@ fn c14_inspect(input: &[u8]) {
 
     let size: usize = empty_text.len() - prefix_size;
 
-    let mut test_input: Vec<u8> = vec![input[0]; block_size];
+    let mut test_input: Vec<u8> = vec![input[0]; block_size + (block_size - prefix_size)];
     let mut working_block: VecDeque<u8> = VecDeque::from(test_input.clone());
     let mut decrypted: Vec<u8> = Vec::new();
     let mut x: usize = 0;
@@ -387,20 +387,19 @@ fn c14_inspect(input: &[u8]) {
         let mut dict: HashMap<Vec<u8>, u8> = HashMap::new();
 
         for i in 0..=255 {
-            println!("{} {:?}", i, test_input);
-            test_input[block_size - 1] = i;
-            let ctxt: Vec<u8> = wrapper_oracle(
-                ch14_oracle(&test_input)
-                , prefix_size, block_size
+            test_input[block_size + (block_size - prefix_size) - 1] = i;
+            let ctxt: Vec<u8> = drop_block(
+                ch14_oracle(&test_input),
+                block_size
             );
             dict.insert(ctxt[0..block_size].to_vec(), i);
         }
 
-        let modifier: usize = block_size - (x % block_size) - 1;
+        let modifier: usize = block_size - (x % block_size) - 1 + (block_size - prefix_size);
 
-        let actual: Vec<u8> = wrapper_oracle(ch14_oracle(
+        let actual: Vec<u8> = drop_block(ch14_oracle(
             vec![input[0]; modifier].as_slice()
-        ), prefix_size, block_size);
+        ), block_size);
 
         let relevant_block: Vec<u8> = actual[blocks_found * block_size..(blocks_found + 1) * block_size].to_vec();
 
@@ -418,18 +417,17 @@ fn c14_inspect(input: &[u8]) {
             blocks_found += 1;
         }
 
-        if x == size - 6 {
+        if x == size - 1 {
             break;
         }
     }
+
+    decrypted
 }
 
-// Turns the problem from challenge 14 into a challenge 12 problem.
-fn wrapper_oracle(ctxt: Vec<u8>, prefix_size: usize, block_size: usize) -> Vec<u8> {
-    let mut new_ctxt: Vec<u8> = pkcs7(ctxt[0..prefix_size].to_vec(), block_size);
-    new_ctxt.extend(ctxt[prefix_size..].to_vec());
-    new_ctxt = new_ctxt[block_size..].to_vec();
-    new_ctxt
+// Drops the first block which will always be the prefix + some padding.
+fn drop_block(ctxt: Vec<u8>, block_size: usize) -> Vec<u8> {
+    ctxt[block_size..].to_vec()
 }
 
 pub fn set_2(part: &str, input: &str) {
@@ -522,7 +520,8 @@ pub fn set_2(part: &str, input: &str) {
             println!("}}");
         }
         "6" => {
-            c14_inspect(input.as_bytes());
+            let out: Vec<u8> = c14_inspect(input.as_bytes());
+            println!("{:?}", String::from_utf8(out).unwrap());
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
     }
