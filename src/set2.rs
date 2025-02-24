@@ -459,6 +459,68 @@ fn challenge_15(input: &str) -> Option<String> {
     result
 }
 
+fn challenge_16_encrypt(input: Vec<u8>) -> Vec<u8> {
+    let key: &Vec<u8> = gen_key();
+
+    let mut data: Vec<u8> = "comment1=cooking%20MCs;userdata=".as_bytes().to_vec();
+    data.extend(input);
+    data.extend(";comment2=%20like%20a%20pound%20of%20bacon".as_bytes());
+
+    let padded: Vec<u8> = pkcs7(data, 16);
+
+    let encrypted = aes_cbc_encrypt(
+        padded.as_slice(),
+        key.as_slice(),
+        &[0u8; 16]
+    );
+
+    encrypted
+}
+
+fn challenge_16_attack(input: &str) -> Vec<u8> {
+    let target: Vec<u8> = b";admin=true;".to_vec();
+    let text: Vec<u8> = vec![input.as_bytes(), target.as_slice()].concat();
+
+    let pad: Vec<u8> = target
+        .iter()
+        .zip(text.iter())
+        .map(|(a, b)| a ^ b)
+        .collect();
+
+    let mut ctxt: Vec<u8> = challenge_16_encrypt(text);
+
+    for x in 0..target.len() {
+        ctxt[x] ^= pad[x];
+    }
+
+    ctxt
+}
+
+fn challenge_16_decrypt(ctxt: Vec<u8>) -> bool {
+    let key: &Vec<u8> = gen_key();
+
+    let decrypted: Vec<u8> = aes_cbc_decrypt(
+        ctxt.as_slice(),
+        key.as_slice(),
+        &[0u8; 16]
+    );
+
+    let ptxt = String::from_utf8_lossy(decrypted.as_slice());
+
+    println!("Decrypted: {}", ptxt);
+
+    let output: Vec<&str> = ptxt.split(';').collect::<Vec<_>>();
+
+    for x in output {
+        if x.contains("admin=true") && !x.contains("userdata=") {
+            println!("Admin access granted");
+            return true
+        }
+    }
+    
+    false
+}
+
 pub fn set_2(part: &str, input: &str) {
     println!("Input: {} {}", input, input.len());
 
@@ -558,6 +620,15 @@ pub fn set_2(part: &str, input: &str) {
             match result {
                 Some(s) => println!("Valid padding: {}", s),
                 None => println!("Invalid padding")
+            }
+        }
+        "8" => {
+            let encoded: String = input.replace(';', "%3B").replace('=', "%3D");
+            if encoded.len() > 1 {
+                println!("Please provide a single character as input.")
+            } else {
+                let ctxt: Vec<u8> = challenge_16_attack(encoded.as_str());
+                println!("Admin access: {}", challenge_16_decrypt(ctxt));
             }
         }
         _ => println!("Invalid part number or not implemented yet: {}", part),
