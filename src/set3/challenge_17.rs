@@ -75,6 +75,15 @@ fn padding_oracle_attack(ctxt: &Vec<u8>, iv: &Vec<u8>) -> bool {
             for i in 0..=255 {
                 working_iv[j] = i;
                 if cbc_padding_oracle(&block.to_vec(), &working_iv) {
+                    if j == 15 {
+                        working_iv[14] ^= 1;
+                        let is_valid = cbc_padding_oracle(&block.to_vec(), &working_iv);
+                        working_iv[14] ^= 1;
+                    
+                        if !is_valid {
+                            continue;
+                        }
+                    }
                     zero_iv[j] = i ^ pad_val;
                     break;
                 }
