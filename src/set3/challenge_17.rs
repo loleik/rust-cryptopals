@@ -34,29 +34,75 @@ fn challenge_17_encrypt() -> (Vec<u8>, Vec<u8>) {
         &iv
     );
 
+    //println!("{:?}", pkcs7(BASE64_STANDARD.decode(strings[index as usize]).unwrap(), 16));
+
     (ctxt, iv)
 }
 
-fn cbc_padding_oracle(ctxt: &Vec<u8>, iv: Vec<u8>) -> bool {
+fn cbc_padding_oracle(ctxt: &Vec<u8>, iv: &Vec<u8>) -> bool {
     let ptxt: Vec<u8> = aes_cbc_decrypt(ctxt, gen_key(), &iv);
 
-    println!("{:?}", String::from_utf8(ptxt.clone()).unwrap());
-
     if validate_pkcs7(&ptxt) {
-        println!("Valid padding");
         return true
     } else {
-        println!("Invalid padding");
         return false
     }
 }
 
+fn padding_oracle_attack(ctxt: &Vec<u8>, iv: &Vec<u8>) -> bool {
+    let blocks: Vec<&[u8]> = ctxt.chunks(16).collect();
+    let mut plaintext_blocks: Vec<Vec<u8>> = Vec::new();
+
+    for block_index in (0..blocks.len()).rev() {
+        let block = blocks[block_index];
+        
+        let prev_block = if block_index == 0 {
+            iv.as_slice()
+        } else {
+            blocks[block_index - 1]
+        };
+
+        let mut zero_iv = vec![0u8; 16];
+        let mut working_iv = prev_block.to_vec();
+
+        for j in (0..16).rev() {
+            let pad_val = (16 - j) as u8;
+
+            for k in (j+1)..16 {
+                working_iv[k] = zero_iv[k] ^ pad_val;
+            }
+
+            for i in 0..=255 {
+                working_iv[j] = i;
+                if cbc_padding_oracle(&block.to_vec(), &working_iv) {
+                    zero_iv[j] = i ^ pad_val;
+                    break;
+                }
+            }
+        }
+
+        let plaintext_block: Vec<u8> = zero_iv.iter()
+            .zip(prev_block.iter())
+            .map(|(&intermediate, &prev_byte)| intermediate ^ prev_byte)
+            .collect();
+
+        println!("Block {} plaintext: {}", block_index, String::from_utf8_lossy(&plaintext_block));
+        plaintext_blocks.push(plaintext_block);
+    }
+
+    plaintext_blocks.reverse();
+
+    println!(
+        "{:?}",
+        String::from_utf8_lossy(&plaintext_blocks.concat())
+    );
+
+    true
+}
+
 pub fn challenge_17(input: &str) {
-    println!("Not used: {}", input);
+    println!("Not needed sorry: {}", input);
     let (ctxt, iv) = challenge_17_encrypt();
 
-    println!("{:?}", ctxt);
-    println!("{:?}", iv);
-
-    cbc_padding_oracle(&ctxt, iv);
+    padding_oracle_attack(&ctxt, &iv);
 }

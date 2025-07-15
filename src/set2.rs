@@ -21,7 +21,7 @@ fn gen_prefix() -> &'static Vec<u8> {
 
 use crate::utils::{base64_file_decode, random_key, test_ecb, strip_pkcs7_padding};
 
-fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
+pub fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
     let mut padded:Vec<u8> = input.clone();
     let padding: usize = block_size - (input.len() % block_size);
 
