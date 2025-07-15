@@ -2,7 +2,7 @@ use base64::prelude::*;
 use std::sync::OnceLock;
 
 use crate::set3::challenge_18::aes_ctr;
-use crate::utils::random_key;
+use crate::utils::{random_key, detect_single_byte_xor};
 
 static KEY: OnceLock<Vec<u8>> = OnceLock::new();
 
@@ -65,6 +65,54 @@ pub fn encryption_loop() -> Vec<Vec<u8>> {
     ctxts
 }
 
-pub fn challenge_19(input: &str) {
+fn break_fixed_nonce_ctr(ctxts: &Vec<Vec<u8>>) {
+    let min_len: usize = 32; // 
+
+    let truncated: Vec<Vec<u8>> = ctxts
+                .iter()
+                .map(|c| c.iter().take(min_len).cloned().collect())
+                .collect();
+
+    let transposed: Vec<Vec<u8>> = transpose(&truncated);
+    let mut keystream: Vec<u8> = Vec::new();
+
+    for i in 0..transposed.len() {
+        let result: (u8, Vec<u8>, f64) = detect_single_byte_xor(&transposed[i]);
+        keystream.push(result.0 as u8);
+    }
+
+    for i in 0..ctxts.len() {
+        let ptxt: Vec<u8> = ctxts[i].iter()
+            .zip(keystream.iter())
+            .map(|(&c, &k)| c ^ k)
+            .collect();
+
+        println!(
+            "{:?}",
+            String::from_utf8_lossy(&ptxt)
+        )
+    }
+
+    fn transpose(ctxts: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        if ctxts.is_empty() {
+            return Vec::new();
+        }
+    
+        let max_len = ctxts.iter().map(|v| v.len()).max().unwrap_or(0);
+    
+        (0..max_len).map(|i| {
+                    ctxts.iter()
+                         .filter_map(|c| c.get(i)) // skip if c[i] doesn't exist
+                         .cloned() // copy the u8
+                         .collect::<Vec<u8>>()
+            }).collect()
+    }
+}
+
+// This shows enough of the plaintext to turn this into a known plaintext attack using hte source.
+// Maybe I'll write that part in the future to get the whole keystream.
+pub fn challenge_19(_input: &str) {
     let ctxts: Vec<Vec<u8>> = encryption_loop();
+
+    break_fixed_nonce_ctr(&ctxts);
 }

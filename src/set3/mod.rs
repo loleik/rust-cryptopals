@@ -1,6 +1,8 @@
 mod challenge_17;
 mod challenge_18;
 mod challenge_19;
+mod challenge_20;
 pub use challenge_17::*;
 pub use challenge_18::*;
 pub use challenge_19::*;
+pub use challenge_20::*;

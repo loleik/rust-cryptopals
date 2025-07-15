@@ -111,3 +111,36 @@ pub fn strip_pkcs7_padding(data: Vec<u8>) -> Vec<u8> {
 
     output
 }
+
+pub fn detect_single_byte_xor(input: &[u8]) -> (u8, Vec<u8>, f64) {
+    let freq_table = |b: u8| match b.to_ascii_lowercase() {
+        b'a' => 8.167, b'b' => 1.492, b'c' => 2.782,
+        b'd' => 4.253, b'e' => 12.70, b'f' => 2.228,
+        b'g' => 2.015, b'h' => 6.094, b'i' => 6.966,
+        b'j' => 0.153, b'k' => 0.772, b'l' => 4.025,
+        b'm' => 2.406, b'n' => 6.749, b'o' => 7.507,
+        b'p' => 1.929, b'q' => 0.095, b'r' => 5.987,
+        b's' => 6.327, b't' => 9.056, b'u' => 2.758,
+        b'v' => 0.978, b'w' => 2.361, b'x' => 0.150,
+        b'y' => 1.974, b'z' => 0.074, b' ' => 13.0,
+        b'\n' | b'.' | b',' | b'\'' | b'"' | b'!' | b'?' => 1.0,
+        _ => -5.0,
+    };
+
+    let mut best_score = f64::MIN;
+    let mut best_key = 0;
+    let mut best_plain = vec![];
+
+    for key in 0u8..=255 {
+        let decoded: Vec<u8> = input.iter().map(|&b| b ^ key).collect();
+        let score: f64 = decoded.iter().map(|&b| freq_table(b)).sum();
+
+        if score > best_score {
+            best_score = score;
+            best_key = key;
+            best_plain = decoded;
+        }
+    }
+
+    (best_key, best_plain, best_score)
+}

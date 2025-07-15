@@ -47,6 +47,8 @@ fn main() {
                     challenge_18(&input),
                 19 => 
                     challenge_19(&input),
+                20 => 
+                    challenge_20(&input),
                 _ => println!("Invalid challenge number: {}", challenge),
             }
         },
