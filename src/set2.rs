@@ -31,7 +31,7 @@ pub fn pkcs7(input: Vec<u8>, block_size: usize) -> Vec<u8> {
 }
 
 // AES 128 ECB using a different crate. Openssl forces 32 bit buffer size.
-fn aes_block_encrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
+pub fn aes_block_encrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
     let cipher_key: &GenericArray<u8, _> = GenericArray::from_slice(key);
     let cipher: Aes128 = Aes128::new(cipher_key);
 
@@ -46,7 +46,7 @@ fn aes_block_encrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
     encrypted_blocks
 }
 
-fn aes_block_decrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
+pub fn aes_block_decrypt(input: &[u8], key: &[u8]) -> Vec<u8> {
     let cipher_key = GenericArray::from_slice(key);
     let cipher = Aes128::new(cipher_key);
 

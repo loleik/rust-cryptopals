@@ -43,6 +43,8 @@ fn main() {
                     set2::set_2(&challenge, &input),
                 17 => 
                     challenge_17(&input),
+                18 => 
+                    challenge_18(&input),
                 _ => println!("Invalid challenge number: {}", challenge),
             }
         },

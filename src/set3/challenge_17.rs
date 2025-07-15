@@ -92,7 +92,7 @@ fn padding_oracle_attack(ctxt: &Vec<u8>, iv: &Vec<u8>) -> Vec<u8> {
 
         let plaintext_block: Vec<u8> = zero_iv.iter()
             .zip(prev_block.iter())
-            .map(|(&intermediate, &prev_byte)| intermediate ^ prev_byte)
+            .map(|(&a, &b)| a ^ b)
             .collect();
 
         plaintext_blocks.push(plaintext_block);
