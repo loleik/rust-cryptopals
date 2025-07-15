@@ -2,7 +2,7 @@ use base64::prelude::*;
 use std::sync::OnceLock;
 
 use crate::set2::{aes_cbc_decrypt, aes_cbc_encrypt, validate_pkcs7};
-use crate::utils::random_key;
+use crate::utils::{random_key, strip_pkcs7_padding};
 
 static KEY: OnceLock<Vec<u8>> = OnceLock::new();
 
@@ -49,7 +49,7 @@ fn cbc_padding_oracle(ctxt: &Vec<u8>, iv: &Vec<u8>) -> bool {
     }
 }
 
-fn padding_oracle_attack(ctxt: &Vec<u8>, iv: &Vec<u8>) -> bool {
+fn padding_oracle_attack(ctxt: &Vec<u8>, iv: &Vec<u8>) -> Vec<u8> {
     let blocks: Vec<&[u8]> = ctxt.chunks(16).collect();
     let mut plaintext_blocks: Vec<Vec<u8>> = Vec::new();
 
@@ -95,23 +95,20 @@ fn padding_oracle_attack(ctxt: &Vec<u8>, iv: &Vec<u8>) -> bool {
             .map(|(&intermediate, &prev_byte)| intermediate ^ prev_byte)
             .collect();
 
-        println!("Block {} plaintext: {}", block_index, String::from_utf8_lossy(&plaintext_block));
         plaintext_blocks.push(plaintext_block);
     }
 
     plaintext_blocks.reverse();
 
-    println!(
-        "{:?}",
-        String::from_utf8_lossy(&plaintext_blocks.concat())
-    );
+    let ptxt: Vec<u8> = strip_pkcs7_padding(plaintext_blocks.concat());
 
-    true
+    ptxt
 }
 
 pub fn challenge_17(input: &str) {
     println!("Not needed sorry: {}", input);
     let (ctxt, iv) = challenge_17_encrypt();
 
-    padding_oracle_attack(&ctxt, &iv);
+    let ptxt: Vec<u8> = padding_oracle_attack(&ctxt, &iv);
+    println!("Plaintext: {:?}", String::from_utf8(ptxt).unwrap())
 }
