@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct PARAMS {
     w: u32, n: u32, m: u32, r: u32,
     a: u32,
@@ -7,9 +7,10 @@ struct PARAMS {
     t: u32, c: u32,
     l: u32,
     f: u32,
-    lmask: u32, rmask: u32
+    lmask: u32, hmask: u32
 }
 
+#[derive(Debug)]
 struct MT19937 {
     state: Vec<u32>,
     index: usize
@@ -21,11 +22,33 @@ impl MT19937 {
         for i in 1..params.n {
             let prev: u32 = state_vector[i as usize - 1];
             state_vector.push(
-                params.f * (prev ^ (prev >> (params.w - 2))) + i
+                params.f.wrapping_mul(prev ^ (prev >> 30)).wrapping_add(i)
             );
         };
 
         MT19937 { state: state_vector, index: 0 }
+    }
+
+    fn twist(x: u32, params: PARAMS) -> u32 {
+        if x % 2 == 1 { (x >> 1) ^ params.a}
+        else { x >> 1 }
+    }
+
+    fn compute(mt: &mut MT19937, params: PARAMS) -> u32 {
+        let x: u32 = mt.state[params.m as usize] ^ MT19937::twist(
+            (mt.state[0] & params.hmask) + (mt.state[1] & params.lmask),
+            params,
+        );
+    
+        let mut y = x ^ ((x >> params.u) & params.d);
+        y = y ^ ((y << params.s) & params.b);
+        y = y ^ ((y << params.t) & params.c);
+        let z: u32 = y ^ (y << params.l);
+
+        mt.state.remove(0);
+        mt.state.push(x);
+
+        z
     }
 }
 
@@ -40,10 +63,14 @@ pub fn challenge_21(_input: &str) {
         t: 15, c: 0xEFC60000,
         l: 18,
         f: 1812433253,
-        lmask: 0xFFFFFFFF << 31, rmask: 0xFFFFFFFF >> 1
+        lmask: 0xFFFFFFFF >> 1, hmask: 0xFFFFFFFF << 31
     };
 
-    let seed: u32 = 5489;
+    let seed: u32 = 54325;
 
-    println!("{:?}", params)
+    let mut mt19937: MT19937 = MT19937::initialize(seed, params);
+
+    for i in 0..6 {
+        println!("{}: {}", i, MT19937::compute(&mut mt19937, params))
+    }
 }
