@@ -144,3 +144,114 @@ pub fn detect_single_byte_xor(input: &[u8]) -> (u8, Vec<u8>, f64) {
 
     (best_key, best_plain, best_score)
 }
+
+pub fn mt19937(seed: u64, values: usize) -> Vec<u32> {
+    #[derive(Debug, Copy, Clone)]
+    struct PARAMS {
+        w: u32, n: u32, m: u32,
+        a: u32,
+        u: u32,
+        s: u32, b: u32,
+        t: u32, c: u32,
+        l: u32,
+        f: u32,
+        lmask: u32, hmask: u32
+    }
+    
+    fn mt_init(seed: u64, params: PARAMS) -> Vec<u32> {
+        let mut mt: Vec<u32> = vec![ 0; params.n as usize];
+        mt[0] = (seed & 0xffffffff) as u32;
+    
+        for i in 1..params.n {
+            mt[i as usize] = (params.f.overflowing_mul(
+                mt[i as usize - 1] ^ (mt[i as usize - 1] >> (params.w - 2))
+            ).0 + i) & 0xffffffff;
+        }
+    
+        mt
+    }
+    
+    fn mt_genrand(params: PARAMS, mt: &mut Vec<u32>, mti_in: u32) -> (u32, u32) {
+        let mut mti: u32 = mti_in.clone();
+    
+        let mag01: Vec<u32> = vec![0x0, params.a];
+        
+        let mut y: u32;
+    
+        if mti >= params.n {
+            for kk in 0..(params.n - params.m) {
+                y = (
+                    mt[kk as usize] & params.hmask
+                ) | (
+                    mt[kk as usize + 1] & params.lmask
+                );
+    
+                mt[kk as usize] = 
+                    mt[(kk + params.m) as usize] ^ 
+                    (y >> 1) ^ 
+                    mag01[y as usize & 0x1];
+            }
+    
+            for kk in (params.n - params.m)..(params.n - 1) {
+                y = (
+                    mt[kk as usize] & params.hmask
+                ) | (
+                    mt[kk as usize + 1] & params.lmask
+                );
+    
+                mt[kk as usize] = 
+                    mt[(kk.overflowing_add(params.m.overflowing_sub(params.n).0)).0 as usize] ^
+                    (y >> 1) ^
+                    mag01[y as usize & 0x1];
+            }
+    
+            y = (
+                mt[params.n as usize - 1] & params.hmask
+            ) | (
+                mt[0] & params.lmask
+            );
+    
+            mt[params.n as usize - 1] = 
+                mt[params.m as usize - 1] ^
+                (y >> 1) ^
+                mag01[y as usize & 0x1];
+    
+            mti = 0; 
+        }
+    
+        y = mt[mti as usize];
+        mti += 1;
+    
+        y ^= y >> params.u;
+        y ^= (y << params.s) & params.b;
+        y ^= (y << params.t) & params.c;
+        y ^= y >> params.l;
+    
+        (y, mti)
+    }
+
+    let params: PARAMS = PARAMS {
+        w: 32, n: 624, m: 397,
+        a: 0x9908B0DF,
+        u: 11,
+        s: 7, b: 0x9D2C5680,
+        t: 15, c: 0xEFC60000,
+        l: 18,
+        f: 1812433253,
+        lmask: 0x7fffffff, hmask: 0x80000000
+    };
+
+    let mut mti: u32 = params.n + 1;
+
+    let mut mt: Vec<u32> = mt_init(seed, params);
+
+    let mut output: Vec<u32> = vec![0; values];
+
+    for i in 0..values {
+        let out = mt_genrand(params, &mut mt, mti);
+        mti = out.1;
+        output[i] = out.0
+    };
+
+    output
+}
